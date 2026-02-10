@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <atomic>
 
 /**
  * BLE Keyboard/HID Report Handler for CrossPoint Reader
@@ -43,7 +44,10 @@ class BLEKeyboardHandler {
    * Get the timestamp (millis) of the last received HID report activity.
    * Returns 0 if no activity has occurred yet.
    */
-  uint32_t getLastActivityTime() const { return lastActivityTime; }
+   uint32_t getLastActivityTime() const { return lastActivityTime; }
+
+   void setDebounceMs(uint32_t ms) { debounceMs = ms; }
+   uint32_t getDebounceMs() const { return debounceMs; }
 
   /**
    * Get memory usage estimate
@@ -51,17 +55,18 @@ class BLEKeyboardHandler {
   size_t getMemoryUsage() const { return sizeof(*this); }
 
  private:
-  // Thread-safe button event queue (atomic-friendly ring buffer)
-  // BLE callback writes, main loop reads
-  static constexpr int QUEUE_SIZE = 8;
-  volatile uint8_t eventQueue[QUEUE_SIZE] = {0};
-  volatile uint8_t queueWriteIdx = 0;
-  volatile uint8_t queueReadIdx = 0;
+   // Thread-safe button event queue (atomic ring buffer)
+   // BLE callback writes, main loop reads
+   static constexpr int QUEUE_SIZE = 8;
+   uint8_t eventQueue[QUEUE_SIZE] = {0};
+   std::atomic<uint8_t> queueWriteIdx = 0;
+   std::atomic<uint8_t> queueReadIdx = 0;
 
   // Debounce: last processed report to avoid repeats
-  uint8_t lastKeycodes[6] = {0};
-  uint32_t lastActivityTime = 0;
-  static constexpr uint32_t DEBOUNCE_MS = 80;
+   uint8_t lastKeycodes[6] = {0};
+   uint32_t lastActivityTime = 0;
+   uint32_t debounceMs = DEFAULT_DEBOUNCE_MS;
+   static constexpr uint32_t DEFAULT_DEBOUNCE_MS = 80;
 
   /**
    * Queue a button event (called from BLE context)

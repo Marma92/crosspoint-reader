@@ -38,10 +38,11 @@ class BluetoothPairingActivity final : public Activity {
 
  private:
   TaskHandle_t displayTaskHandle = nullptr;
+  TaskHandle_t connectionTaskHandle = nullptr;
   SemaphoreHandle_t renderingMutex = nullptr;
-  bool updateRequired = false;
+  volatile bool updateRequired = false;
 
-  State state = State::SCANNING;
+  volatile State state = State::SCANNING;
   int selectedIndex = 0;
   unsigned long stateStartTime = 0;
 
@@ -50,9 +51,10 @@ class BluetoothPairingActivity final : public Activity {
   uint8_t connectingAddressType = 0;
   std::string connectingName;
 
-  const std::function<void()> onGoBack;
+  // Connection task result: 0=idle, 1=in-progress, 2=success, -1=failed
+  volatile int8_t connectionResult = 0;
 
-  static constexpr unsigned long CONNECTION_TIMEOUT_MS = 15000;
+  const std::function<void()> onGoBack;
 
   static void taskTrampoline(void* param);
   [[noreturn]] void displayTaskLoop();

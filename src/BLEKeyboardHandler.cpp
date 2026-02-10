@@ -63,37 +63,39 @@ void BLEKeyboardHandler::processKeyboardReport(const uint8_t* data, size_t lengt
 }
 
 void BLEKeyboardHandler::queueButtonEvent(uint8_t buttonId) {
-  // Simple ring buffer write (single producer from BLE task)
-  uint8_t nextWrite = (queueWriteIdx + 1) % QUEUE_SIZE;
-  if (nextWrite == queueReadIdx) {
-    // Queue full, drop oldest event
+  uint8_t writeIdx = queueWriteIdx.load(std::memory_order_relaxed);
+  uint8_t readIdx = queueReadIdx.load(std::memory_order_acquire);
+  uint8_t nextWrite = (writeIdx + 1) % QUEUE_SIZE;
+  if (nextWrite == readIdx) {
     return;
   }
-  eventQueue[queueWriteIdx] = buttonId;
-  queueWriteIdx = nextWrite;
+  eventQueue[writeIdx] = buttonId;
+  queueWriteIdx.store(nextWrite, std::memory_order_release);
 }
 
 void BLEKeyboardHandler::update() {
-  // Process all queued events on the main loop (single consumer)
-  // This runs AFTER InputManager::update() clears pressedEvents,
-  // so injected presses will be visible until the next update() cycle.
-#ifdef ARDUINO
-  extern MappedInputManager mappedInputManager;
+  uint8_t writeIdx = queueWriteIdx.load(std::memory_order_acquire);
+  uint8_t readIdx = queueReadIdx.load(std::memory_order_relaxed);
 
-  while (queueReadIdx != queueWriteIdx) {
-    uint8_t buttonId = eventQueue[queueReadIdx];
-    queueReadIdx = (queueReadIdx + 1) % QUEUE_SIZE;
+  while (readIdx != writeIdx) {
+    uint8_t buttonId = eventQueue[readIdx];
+    uint8_t nextRead = (readIdx + 1) % QUEUE_SIZE;
 
-    // Debounce: don't inject too rapidly (e-ink can't keep up)
     uint32_t now = millis();
-    if (now - lastActivityTime < DEBOUNCE_MS) {
+    if (now - lastActivityTime < debounceMs) {
+      readIdx = nextRead;
       continue;
     }
     lastActivityTime = now;
 
+#ifdef ARDUINO
+    extern MappedInputManager mappedInputManager;
     mappedInputManager.injectButton(static_cast<MappedInputManager::Button>(buttonId));
-  }
 #endif
+
+    queueReadIdx.store(nextRead, std::memory_order_release);
+    readIdx = nextRead;
+  }
 }
 
 uint8_t BLEKeyboardHandler::mapScancodeToButton(uint8_t scancode) {

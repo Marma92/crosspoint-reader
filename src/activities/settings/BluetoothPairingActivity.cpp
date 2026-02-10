@@ -170,11 +170,18 @@ void BluetoothPairingActivity::loop() {
     }
 
     case State::CONNECTING: {
-      // This runs once — attempt the blocking connection
+      unsigned long elapsed = millis() - stateStartTime;
+      if (elapsed > CONNECTION_TIMEOUT_MS) {
+        Serial.printf("[%lu] [BTPair] Connection timeout\n", millis());
+        state = State::CONNECTION_FAILED;
+        stateStartTime = millis();
+        updateRequired = true;
+        break;
+      }
+
       bool success = BLUETOOTH_MANAGER.connectToDevice(connectingAddress, connectingAddressType);
 
       if (success) {
-        // Save as paired device
         PAIRED_DEVICES.addDevice(connectingName, connectingAddress, connectingAddressType);
         state = State::CONNECTED;
       } else {
