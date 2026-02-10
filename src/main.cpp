@@ -10,9 +10,12 @@
 #include <cstring>
 
 #include "Battery.h"
+#include "BLEKeyboardHandler.h"
+#include "BluetoothManager.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "KOReaderCredentialStore.h"
+#include "PairedDeviceStore.h"
 #include "MappedInputManager.h"
 #include "RecentBooksStore.h"
 #include "activities/boot_sleep/BootActivity.h"
@@ -200,6 +203,11 @@ void enterDeepSleep() {
   exitActivity();
   enterNewActivity(new SleepActivity(renderer, mappedInputManager));
 
+  // Shutdown Bluetooth to save power and memory
+  if (BLUETOOTH_MANAGER.isInitialized()) {
+    BLUETOOTH_MANAGER.shutdown();
+  }
+
   display.deepSleep();
   Serial.printf("[%lu] [   ] Power button press calibration value: %lu ms\n", millis(), t2 - t1);
   Serial.printf("[%lu] [   ] Entering deep sleep.\n", millis());
@@ -304,6 +312,26 @@ void setup() {
 
   SETTINGS.loadFromFile();
   KOREADER_STORE.loadFromFile();
+  PAIRED_DEVICES.loadFromFile();
+
+  // Initialize Bluetooth if enabled (before display to minimize RAM impact)
+  if (SETTINGS.bluetoothEnabled == CrossPointSettings::BLUETOOTH_MODE::ON) {
+    if (!BLUETOOTH_MANAGER.initialize()) {
+      Serial.printf("[%lu] [BLE] Failed to initialize Bluetooth\n", millis());
+      // Fall back to disabled state
+      SETTINGS.bluetoothEnabled = CrossPointSettings::BLUETOOTH_MODE::OFF;
+    } else {
+      // Auto-reconnect to last paired device
+      const auto* lastDevice = PAIRED_DEVICES.getLastDevice();
+      if (lastDevice != nullptr) {
+        Serial.printf("[%lu] [BLE] Auto-reconnecting to %s (%s)\n", millis(), lastDevice->name.c_str(),
+                      lastDevice->address.c_str());
+        if (!BLUETOOTH_MANAGER.connectToDevice(lastDevice->address, lastDevice->addressType)) {
+          Serial.printf("[%lu] [BLE] Auto-reconnect failed\n", millis());
+        }
+      }
+    }
+  }
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
@@ -401,6 +429,25 @@ void loop() {
     if (maxLoopDuration > 50) {
       Serial.printf("[%lu] [LOOP] New max loop duration: %lu ms (activity: %lu ms)\n", millis(), maxLoopDuration,
                     activityDuration);
+    }
+  }
+
+  // Update keyboard handler if enabled
+  if (BLUETOOTH_MANAGER.isInitialized()) {
+    auto* keyboardHandler = BLUETOOTH_MANAGER.getKeyboardHandler();
+    if (keyboardHandler) {
+      keyboardHandler->update();
+    }
+
+    // Idle BLE disconnect: if connected but no HID reports for 5 minutes, disconnect
+    // to save power. The device will auto-reconnect on next boot or via settings.
+    static constexpr unsigned long BLE_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+    if (BLUETOOTH_MANAGER.isConnected() && keyboardHandler) {
+      uint32_t lastBleActivity = keyboardHandler->getLastActivityTime();
+      if (lastBleActivity > 0 && (millis() - lastBleActivity) > BLE_IDLE_TIMEOUT_MS) {
+        Serial.printf("[%lu] [BLE] Idle timeout, disconnecting to save power\n", millis());
+        BLUETOOTH_MANAGER.disconnectDevice();
+      }
     }
   }
 

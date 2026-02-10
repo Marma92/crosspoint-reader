@@ -119,6 +119,12 @@ class CrossPointSettings {
   // UI Theme
   enum UI_THEME { CLASSIC = 0, LYRA = 1 };
 
+  // Bluetooth mode settings
+  enum BLUETOOTH_MODE { OFF = 0, ON = 1 };
+
+  // Bluetooth keyboard mode settings
+  enum BLUETOOTH_KEYBOARD_MODE { KBD_DISABLED = 0, KBD_ENABLED = 1 };
+
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
   // Sleep screen cover mode settings
@@ -171,6 +177,10 @@ class CrossPointSettings {
   uint8_t fadingFix = 0;
   // Use book's embedded CSS styles for EPUB rendering (1 = enabled, 0 = disabled)
   uint8_t embeddedStyle = 1;
+  // Bluetooth enabled setting
+  uint8_t bluetoothEnabled = OFF;
+  // Bluetooth keyboard enabled setting
+  uint8_t bluetoothKeyboardEnabled = KBD_DISABLED;
 
   ~CrossPointSettings() = default;
 

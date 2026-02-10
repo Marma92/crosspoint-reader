@@ -66,6 +66,46 @@ bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased(); 
 
 unsigned long MappedInputManager::getHeldTime() const { return gpio.getHeldTime(); }
 
+void MappedInputManager::injectButton(Button button) {
+  // Map logical button to physical button index, then inject via HalGPIO
+  const auto sideLayout = static_cast<CrossPointSettings::SIDE_BUTTON_LAYOUT>(SETTINGS.sideButtonLayout);
+  const auto& side = kSideLayouts[sideLayout];
+
+  uint8_t physicalButton;
+  switch (button) {
+    case Button::Back:
+      physicalButton = SETTINGS.frontButtonBack;
+      break;
+    case Button::Confirm:
+      physicalButton = SETTINGS.frontButtonConfirm;
+      break;
+    case Button::Left:
+      physicalButton = SETTINGS.frontButtonLeft;
+      break;
+    case Button::Right:
+      physicalButton = SETTINGS.frontButtonRight;
+      break;
+    case Button::Up:
+      physicalButton = HalGPIO::BTN_UP;
+      break;
+    case Button::Down:
+      physicalButton = HalGPIO::BTN_DOWN;
+      break;
+    case Button::Power:
+      physicalButton = HalGPIO::BTN_POWER;
+      break;
+    case Button::PageBack:
+      physicalButton = side.pageBack;
+      break;
+    case Button::PageForward:
+      physicalButton = side.pageForward;
+      break;
+    default:
+      return;
+  }
+  gpio.injectPress(physicalButton);
+}
+
 MappedInputManager::Labels MappedInputManager::mapLabels(const char* back, const char* confirm, const char* previous,
                                                          const char* next) const {
   // Build the label order based on the configured hardware mapping.

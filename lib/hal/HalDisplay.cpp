@@ -29,7 +29,10 @@ EInkDisplay::RefreshMode convertRefreshMode(HalDisplay::RefreshMode mode) {
 }
 
 void HalDisplay::displayBuffer(HalDisplay::RefreshMode mode, bool turnOffScreen) {
-  einkDisplay.displayBuffer(convertRefreshMode(mode), turnOffScreen);
+  // EInkDisplay::displayBuffer only accepts RefreshMode (no turnOffScreen param).
+  // The turnOffScreen behaviour is handled by refreshDisplay() instead.
+  (void)turnOffScreen;
+  einkDisplay.displayBuffer(convertRefreshMode(mode));
 }
 
 void HalDisplay::refreshDisplay(HalDisplay::RefreshMode mode, bool turnOffScreen) {

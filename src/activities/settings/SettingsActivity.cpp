@@ -3,6 +3,7 @@
 #include <GfxRenderer.h>
 #include <HardwareSerial.h>
 
+#include "BluetoothPairingActivity.h"
 #include "ButtonRemapActivity.h"
 #include "CalibreSettingsActivity.h"
 #include "ClearCacheActivity.h"
@@ -47,6 +48,7 @@ void SettingsActivity::onEnter() {
 
   // Append device-only ACTION items
   controlsSettings.insert(controlsSettings.begin(), SettingInfo::Action("Remap Front Buttons"));
+  systemSettings.push_back(SettingInfo::Action("Bluetooth"));
   systemSettings.push_back(SettingInfo::Action("KOReader Sync"));
   systemSettings.push_back(SettingInfo::Action("OPDS Browser"));
   systemSettings.push_back(SettingInfo::Action("Clear Cache"));
@@ -214,6 +216,14 @@ void SettingsActivity::toggleCurrentSetting() {
       xSemaphoreTake(renderingMutex, portMAX_DELAY);
       exitActivity();
       enterNewActivity(new OtaUpdateActivity(renderer, mappedInput, [this] {
+        exitActivity();
+        updateRequired = true;
+      }));
+      xSemaphoreGive(renderingMutex);
+    } else if (strcmp(setting.name, "Bluetooth") == 0) {
+      xSemaphoreTake(renderingMutex, portMAX_DELAY);
+      exitActivity();
+      enterNewActivity(new BluetoothPairingActivity(renderer, mappedInput, [this] {
         exitActivity();
         updateRequired = true;
       }));

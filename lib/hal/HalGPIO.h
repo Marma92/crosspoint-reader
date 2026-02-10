@@ -38,6 +38,9 @@ class HalGPIO {
   bool wasAnyReleased() const;
   unsigned long getHeldTime() const;
 
+  // Inject a button press from external source (e.g., BLE keyboard)
+  void injectPress(uint8_t buttonIndex);
+
   // Setup wake up GPIO and enter deep sleep
   void startDeepSleep();
 

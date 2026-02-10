@@ -24,6 +24,9 @@ class MappedInputManager {
   Labels mapLabels(const char* back, const char* confirm, const char* previous, const char* next) const;
   // Returns the raw front button index that was pressed this frame (or -1 if none).
   int getPressedFrontButton() const;
+  
+  // Inject button press from external source (e.g., BLE keyboard)
+  void injectButton(Button button);
 
  private:
   HalGPIO& gpio;
